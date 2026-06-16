@@ -1,0 +1,48 @@
+name: Flight Agent
+
+# מתי הסוכן רץ:
+on:
+  # 1. אוטומטית לפי לוח זמנים (cron)
+  schedule:
+    # רץ 3 פעמים ביום: 06:00, 12:00, 18:00 לפי שעון UTC
+    # (בישראל זה בערך 09:00, 15:00, 21:00 בקיץ)
+    - cron: "0 6,12,18 * * *"
+  # 2. הפעלה ידנית — כפתור "Run workflow" בלשונית Actions
+  workflow_dispatch:
+
+jobs:
+  check-flights:
+    runs-on: ubuntu-latest
+    steps:
+      # מוריד את הקוד מהריפו
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # מתקין Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # מתקין את הספריות
+      - name: Install dependencies
+        run: npm install
+
+      # מריץ את הסוכן
+      - name: Run flight agent
+        run: npm start
+        env:
+          # הסודות מגיעים מ-GitHub Secrets (לא מהקוד!)
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # ההגדרות הלא-סודיות — אפשר לערוך אותן כאן ישירות
+          ORIGIN: TLV
+          DESTINATION: KGS
+          DEPART_DATE: "2026-09-03"
+          RETURN_DATE: "2026-09-06"
+          DEPART_FROM_HOUR: "1"
+          DEPART_TO_HOUR: "12"
+          RETURN_FROM_HOUR: "13"
+          RETURN_TO_HOUR: "22"
+          MAX_PRICE_EUR: "1000"
