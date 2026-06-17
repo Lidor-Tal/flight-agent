@@ -125,6 +125,12 @@ async function main() {
 
   if (goodDeals.length === 0) {
     console.log("אין טיסה מתאימה כרגע. אבדוק שוב בריצה הבאה.");
+    // הודעת "פעימת לב": מודיעים שהבוט רץ ותקין, גם כשאין טיסות.
+    // שקט מוחלט = סימן שמשהו נפל. הודעה כזו = הכל עובד.
+    const heartbeat =
+      `✅ הבוט רץ ותקין — לא נמצאו כרגע טיסות ישירות ${ORIGIN}→${DESTINATION} ` +
+      `שעונות על הקריטריונים (${DEPART_DATE} עד ${RETURN_DATE}).`;
+    await sendTelegram(TELEGRAM_BOT_TOKEN!, TELEGRAM_CHAT_ID!, heartbeat);
     return;
   }
 
@@ -147,7 +153,20 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error("שגיאה:", err.message);
+  // אם הקוד נפל — מנסים להודיע בטלגרם כדי שתדע מיד שיש תקלה.
+  // עוטפים ב-try נוסף כי אם גם הטלגרם נכשל, לא רוצים לקרוס שוב בשקט.
+  try {
+    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID && !TELEGRAM_BOT_TOKEN.includes("הדבק")) {
+      await sendTelegram(
+        TELEGRAM_BOT_TOKEN,
+        TELEGRAM_CHAT_ID,
+        `⚠️ תקלה בבוט הטיסות:\n${err.message}`
+      );
+    }
+  } catch {
+    console.error("גם שליחת הודעת השגיאה לטלגרם נכשלה.");
+  }
   process.exit(1);
 });
