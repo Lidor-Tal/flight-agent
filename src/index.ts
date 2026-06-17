@@ -29,6 +29,7 @@ const {
   RETURN_FROM_HOUR = "13",
   RETURN_TO_HOUR = "22",
   MAX_PRICE_EUR = "1000",
+  NONSTOP_ONLY = "true", // "true" = רק טיסות ישירות. שים "false" כדי לאפשר קונקשן
 } = process.env;
 
 // בדיקה קטנה שלא שכחנו למלא משהו
@@ -58,6 +59,11 @@ function buildBaseUrl(): URL {
   url.searchParams.set("api_key", SERPAPI_KEY!);
   url.searchParams.set("outbound_times", `${DEPART_FROM_HOUR},${DEPART_TO_HOUR},0,23`);
   url.searchParams.set("return_times", `${RETURN_FROM_HOUR},${RETURN_TO_HOUR},0,23`);
+  // ישיר בלבד: stops=1 אומר ל-Google Flights להחזיר רק טיסות ללא עצירות.
+  // טיסה ישירה היא גם תמיד חברה אחת (אין קונקשן שישלב חברות).
+  if (NONSTOP_ONLY !== "false") {
+    url.searchParams.set("stops", "1");
+  }
   return url;
 }
 
@@ -75,14 +81,17 @@ async function searchFlights(): Promise<FlightDeal[]> {
     return {
       price: offer.price,
       departTime: firstLeg.departure_airport.time,
-      airline: firstLeg.airline,
-      departureToken: offer.departure_token, // נשמור לקריאת החזור
+      airline: firstLeg.airline, // החברה של ההלוך
+      departureToken: offer.departure_token,
     };
   });
 }
 
-// --- 3. הבאת שעת החזור לטיסה ספציפית (קריאה שנייה, עולה חיפוש נוסף) ---
-async function fetchReturnTime(departureToken: string): Promise<string | undefined> {
+// --- 3. הבאת פרטי החזור לטיסה ספציפית (קריאה שנייה, עולה חיפוש נוסף) ---
+// מחזיר גם את שעת החזור וגם את החברה של החזור (שעשויה להיות שונה מההלוך)
+async function fetchReturnInfo(
+  departureToken: string
+): Promise<{ time: string; airline: string } | undefined> {
   const url = buildBaseUrl();
   url.searchParams.set("departure_token", departureToken); // זה מה שמבקש את החזור
   const res = await fetch(url);
@@ -92,14 +101,18 @@ async function fetchReturnTime(departureToken: string): Promise<string | undefin
   const returnOffers = [...(data.best_flights ?? []), ...(data.other_flights ?? [])];
   if (returnOffers.length === 0) return undefined;
 
-  // לוקחים את אופציית החזור הראשונה (הזולה/מומלצת), והשעה של הקטע הראשון בה
+  // אופציית החזור הראשונה (המומלצת), והקטע הראשון בה
   const firstReturnLeg = returnOffers[0].flights[0];
-  return firstReturnLeg.departure_airport.time; // "2026-09-06 18:20"
+  return {
+    time: firstReturnLeg.departure_airport.time, // "2026-09-06 18:20"
+    airline: firstReturnLeg.airline, // החברה של החזור
+  };
 }
 
 // --- 4. הפונקציה הראשית שמחברת הכל ---
 async function main() {
-  console.log("🔍 מחפש טיסות...");
+  const mode = NONSTOP_ONLY !== "false" ? "ישיר בלבד" : "כולל קונקשן";
+  console.log(`🔍 מחפש טיסות (${mode})...`);
   const allDeals = await searchFlights();
   console.log(`נמצאו ${allDeals.length} טיסות סה"כ.`);
 
@@ -120,9 +133,13 @@ async function main() {
   const topDeals = goodDeals.slice(0, MAX_RETURN_LOOKUPS);
 
   for (const d of topDeals) {
-    // קריאה שנייה: מביאים את שעת החזור (אם יש אסימון)
+    // קריאה שנייה: מביאים את שעת + חברת החזור
     if (d.departureToken) {
-      d.returnTime = await fetchReturnTime(d.departureToken);
+      const ret = await fetchReturnInfo(d.departureToken);
+      if (ret) {
+        d.returnTime = ret.time;
+        d.returnAirline = ret.airline;
+      }
     }
     const msg = buildMessage(d, ORIGIN, DESTINATION);
     await sendTelegram(TELEGRAM_BOT_TOKEN!, TELEGRAM_CHAT_ID!, msg);

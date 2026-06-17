@@ -47,3 +47,4 @@ jobs:
           RETURN_FROM_HOUR: "13"
           RETURN_TO_HOUR: "22"
           MAX_PRICE_EUR: "1000"
+          NONSTOP_ONLY: "true"

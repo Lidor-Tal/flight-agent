@@ -79,19 +79,26 @@ describe("buildMessage", () => {
     expect(msg).toContain("2026-09-03 08:30");
   });
 
-  it("מציג שורת חזור רק כשיש returnTime", () => {
-    // בלי חזור — אין שורת "חזרה"
+  it("מציג שורת חזור עם החברה הנכונה רק כשיש returnTime", () => {
+    // בלי חזור — אין שורת חזור (בודקים לפי האמוג'י 🛬 שמופיע רק בשורת החזור,
+    // ולא לפי המילה "חזור" שמופיעה גם ב"מחיר הלוך-חזור")
     const withoutReturn = buildMessage(sampleDeals[0], "TLV", "KGS");
-    expect(withoutReturn).not.toContain("חזרה");
+    expect(withoutReturn).not.toContain("🛬");
 
-    // עם חזור — השורה מופיעה עם השעה
+    // עם חזור — מופיעה השעה *והחברה של החזור* (Arkia), לא של ההלוך
     const withReturn = buildMessage(
-      { ...sampleDeals[0], returnTime: "2026-09-06 18:20" },
+      {
+        ...sampleDeals[0], // ההלוך הוא Blue Bird
+        returnTime: "2026-09-06 18:20",
+        returnAirline: "Arkia",
+      },
       "TLV",
       "KGS"
     );
-    expect(withReturn).toContain("חזרה");
+    expect(withReturn).toContain("🛬"); // שורת החזור קיימת
     expect(withReturn).toContain("2026-09-06 18:20");
+    expect(withReturn).toContain("Arkia"); // החברה של החזור
+    expect(withReturn).toContain("Blue Bird"); // החברה של ההלוך — שתיהן מופיעות
   });
 });
 
