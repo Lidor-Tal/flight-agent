@@ -12,6 +12,9 @@ import {
   sendTelegram,
 } from "./flightLogic.js"; // הלוגיקה הנבדקת חיה בקובץ נפרד
 
+// כמה טיסות (הזולות ביותר) להביא להן פרטי חזור. תקרה קשיחה לחיסכון במכסה.
+const MAX_RETURN_LOOKUPS = 2;
+
 // --- 1. קוראים את ההגדרות מתוך קובץ ה-.env ---
 const {
   SERPAPI_KEY,
@@ -40,8 +43,9 @@ requireEnv("SERPAPI_KEY", SERPAPI_KEY);
 requireEnv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN);
 requireEnv("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID);
 
-// --- 2. מחפשים טיסות הלוך-חזור דרך SerpApi ---
-async function searchFlights(): Promise<FlightDeal[]> {
+// --- בונה כתובת בסיס ל-SerpApi עם כל הפרמטרים הקבועים ---
+// משמש גם לחיפוש ההלוך וגם לקריאת החזור (שמוסיפה departure_token)
+function buildBaseUrl(): URL {
   const url = new URL("https://serpapi.com/search");
   url.searchParams.set("engine", "google_flights");
   url.searchParams.set("departure_id", ORIGIN);
@@ -52,16 +56,18 @@ async function searchFlights(): Promise<FlightDeal[]> {
   url.searchParams.set("currency", "EUR");
   url.searchParams.set("hl", "en");
   url.searchParams.set("api_key", SERPAPI_KEY!);
-  // פילטר שעות מובנה של גוגל:
   url.searchParams.set("outbound_times", `${DEPART_FROM_HOUR},${DEPART_TO_HOUR},0,23`);
   url.searchParams.set("return_times", `${RETURN_FROM_HOUR},${RETURN_TO_HOUR},0,23`);
+  return url;
+}
 
+// --- 2. חיפוש טיסות ההלוך (קריאה ראשונה) ---
+async function searchFlights(): Promise<FlightDeal[]> {
+  const url = buildBaseUrl();
   const res = await fetch(url);
   if (!res.ok) throw new Error(`SerpApi failed: ${res.status} ${await res.text()}`);
 
   const data = (await res.json()) as any;
-
-  // SerpApi מחזיר שתי רשימות: best_flights + other_flights
   const offers = [...(data.best_flights ?? []), ...(data.other_flights ?? [])];
 
   return offers.map((offer: any): FlightDeal => {
@@ -70,17 +76,33 @@ async function searchFlights(): Promise<FlightDeal[]> {
       price: offer.price,
       departTime: firstLeg.departure_airport.time,
       airline: firstLeg.airline,
+      departureToken: offer.departure_token, // נשמור לקריאת החזור
     };
   });
 }
 
-// --- 3. הפונקציה הראשית שמחברת הכל ---
+// --- 3. הבאת שעת החזור לטיסה ספציפית (קריאה שנייה, עולה חיפוש נוסף) ---
+async function fetchReturnTime(departureToken: string): Promise<string | undefined> {
+  const url = buildBaseUrl();
+  url.searchParams.set("departure_token", departureToken); // זה מה שמבקש את החזור
+  const res = await fetch(url);
+  if (!res.ok) return undefined; // אם נכשל, פשוט לא נציג חזור — לא נפיל את כל הריצה
+
+  const data = (await res.json()) as any;
+  const returnOffers = [...(data.best_flights ?? []), ...(data.other_flights ?? [])];
+  if (returnOffers.length === 0) return undefined;
+
+  // לוקחים את אופציית החזור הראשונה (הזולה/מומלצת), והשעה של הקטע הראשון בה
+  const firstReturnLeg = returnOffers[0].flights[0];
+  return firstReturnLeg.departure_airport.time; // "2026-09-06 18:20"
+}
+
+// --- 4. הפונקציה הראשית שמחברת הכל ---
 async function main() {
   console.log("🔍 מחפש טיסות...");
   const allDeals = await searchFlights();
   console.log(`נמצאו ${allDeals.length} טיסות סה"כ.`);
 
-  // הסינון מגיע עכשיו מהמודול הנבדק
   const goodDeals = filterDeals(allDeals, {
     fromHour: parseInt(DEPART_FROM_HOUR),
     toHour: parseInt(DEPART_TO_HOUR),
@@ -93,8 +115,15 @@ async function main() {
     return;
   }
 
+  // ממיינים מהזול ליקר, ולוקחים רק את ה-2 הזולות (תקרה לחיסכון במכסה)
   goodDeals.sort((a, b) => a.price - b.price);
-  for (const d of goodDeals) {
+  const topDeals = goodDeals.slice(0, MAX_RETURN_LOOKUPS);
+
+  for (const d of topDeals) {
+    // קריאה שנייה: מביאים את שעת החזור (אם יש אסימון)
+    if (d.departureToken) {
+      d.returnTime = await fetchReturnTime(d.departureToken);
+    }
     const msg = buildMessage(d, ORIGIN, DESTINATION);
     await sendTelegram(TELEGRAM_BOT_TOKEN!, TELEGRAM_CHAT_ID!, msg);
     console.log("📲 נשלחה התראה לטלגרם!");

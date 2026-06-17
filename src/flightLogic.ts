@@ -9,6 +9,8 @@ export interface FlightDeal {
   price: number;
   departTime: string; // פורמט "2026-09-03 13:40"
   airline: string;
+  departureToken?: string; // אסימון שמשמש להבאת פרטי החזור (קריאה שנייה)
+  returnTime?: string; // שעת יציאה בחזור — מתמלא אחרי הקריאה השנייה
 }
 
 // הקריטריונים לסינון — מועברים כפרמטר במקום לקרוא מ-env,
@@ -42,12 +44,17 @@ export function buildMessage(
   origin: string,
   destination: string
 ): string {
+  // שורת החזור מתווספת רק אם הבאנו את פרטי החזור
+  const returnLine = d.returnTime
+    ? `\nחזרה: ${d.returnTime}`
+    : "";
   return (
     `✈️ <b>נמצאה טיסת צהריים טובה!</b>\n\n` +
     `מסלול: ${origin} ⇄ ${destination}\n` +
     `חברה: ${d.airline}\n` +
-    `יציאה: ${d.departTime}\n` +
-    `💰 מחיר: ${d.price} EUR`
+    `יציאה (הלוך): ${d.departTime}` +
+    returnLine +
+    `\n💰 מחיר הלוך-חזור: ${d.price} EUR`
   );
 }
 

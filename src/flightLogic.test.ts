@@ -78,6 +78,21 @@ describe("buildMessage", () => {
     expect(msg).toContain("300");
     expect(msg).toContain("2026-09-03 08:30");
   });
+
+  it("מציג שורת חזור רק כשיש returnTime", () => {
+    // בלי חזור — אין שורת "חזרה"
+    const withoutReturn = buildMessage(sampleDeals[0], "TLV", "KGS");
+    expect(withoutReturn).not.toContain("חזרה");
+
+    // עם חזור — השורה מופיעה עם השעה
+    const withReturn = buildMessage(
+      { ...sampleDeals[0], returnTime: "2026-09-06 18:20" },
+      "TLV",
+      "KGS"
+    );
+    expect(withReturn).toContain("חזרה");
+    expect(withReturn).toContain("2026-09-06 18:20");
+  });
 });
 
 // ============================================================
