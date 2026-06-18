@@ -57,8 +57,14 @@ function buildBaseUrl(): URL {
   url.searchParams.set("currency", "EUR");
   url.searchParams.set("hl", "en");
   url.searchParams.set("api_key", SERPAPI_KEY!);
-  url.searchParams.set("outbound_times", `${DEPART_FROM_HOUR},${DEPART_TO_HOUR},0,23`);
-  url.searchParams.set("return_times", `${RETURN_FROM_HOUR},${RETURN_TO_HOUR},0,23`);
+  url.searchParams.set(
+    "outbound_times",
+    `${DEPART_FROM_HOUR},${DEPART_TO_HOUR},0,23`,
+  );
+  url.searchParams.set(
+    "return_times",
+    `${RETURN_FROM_HOUR},${RETURN_TO_HOUR},0,23`,
+  );
   // ישיר בלבד: stops=1 אומר ל-Google Flights להחזיר רק טיסות ללא עצירות.
   // טיסה ישירה היא גם תמיד חברה אחת (אין קונקשן שישלב חברות).
   if (NONSTOP_ONLY !== "false") {
@@ -71,7 +77,8 @@ function buildBaseUrl(): URL {
 async function searchFlights(): Promise<FlightDeal[]> {
   const url = buildBaseUrl();
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`SerpApi failed: ${res.status} ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`SerpApi failed: ${res.status} ${await res.text()}`);
 
   const data = (await res.json()) as any;
   const offers = [...(data.best_flights ?? []), ...(data.other_flights ?? [])];
@@ -90,7 +97,7 @@ async function searchFlights(): Promise<FlightDeal[]> {
 // --- 3. הבאת פרטי החזור לטיסה ספציפית (קריאה שנייה, עולה חיפוש נוסף) ---
 // מחזיר גם את שעת החזור וגם את החברה של החזור (שעשויה להיות שונה מההלוך)
 async function fetchReturnInfo(
-  departureToken: string
+  departureToken: string,
 ): Promise<{ time: string; airline: string } | undefined> {
   const url = buildBaseUrl();
   url.searchParams.set("departure_token", departureToken); // זה מה שמבקש את החזור
@@ -98,7 +105,10 @@ async function fetchReturnInfo(
   if (!res.ok) return undefined; // אם נכשל, פשוט לא נציג חזור — לא נפיל את כל הריצה
 
   const data = (await res.json()) as any;
-  const returnOffers = [...(data.best_flights ?? []), ...(data.other_flights ?? [])];
+  const returnOffers = [
+    ...(data.best_flights ?? []),
+    ...(data.other_flights ?? []),
+  ];
   if (returnOffers.length === 0) return undefined;
 
   // אופציית החזור הראשונה (המומלצת), והקטע הראשון בה
@@ -158,11 +168,15 @@ main().catch(async (err) => {
   // אם הקוד נפל — מנסים להודיע בטלגרם כדי שתדע מיד שיש תקלה.
   // עוטפים ב-try נוסף כי אם גם הטלגרם נכשל, לא רוצים לקרוס שוב בשקט.
   try {
-    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID && !TELEGRAM_BOT_TOKEN.includes("הדבק")) {
+    if (
+      TELEGRAM_BOT_TOKEN &&
+      TELEGRAM_CHAT_ID &&
+      !TELEGRAM_BOT_TOKEN.includes("הדבק")
+    ) {
       await sendTelegram(
         TELEGRAM_BOT_TOKEN,
         TELEGRAM_CHAT_ID,
-        `⚠️ תקלה בבוט הטיסות:\n${err.message}`
+        `⚠️ תקלה בבוט הטיסות:\n${err.message}`,
       );
     }
   } catch {

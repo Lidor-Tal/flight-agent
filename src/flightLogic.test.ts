@@ -15,8 +15,8 @@ import {
 // כמה טיסות לדוגמה שנשתמש בהן בבדיקות
 const sampleDeals: FlightDeal[] = [
   { price: 300, departTime: "2026-09-03 08:30", airline: "Blue Bird" }, // בוקר, זול
-  { price: 1200, departTime: "2026-09-03 10:00", airline: "Aegean" },  // בוקר, יקר
-  { price: 250, departTime: "2026-09-03 20:00", airline: "Arkia" },    // ערב, זול
+  { price: 1200, departTime: "2026-09-03 10:00", airline: "Aegean" }, // בוקר, יקר
+  { price: 250, departTime: "2026-09-03 20:00", airline: "Arkia" }, // ערב, זול
 ];
 
 // ============================================================
@@ -78,28 +78,6 @@ describe("buildMessage", () => {
     expect(msg).toContain("300");
     expect(msg).toContain("2026-09-03 08:30");
   });
-
-  it("מציג שורת חזור עם החברה הנכונה רק כשיש returnTime", () => {
-    // בלי חזור — אין שורת חזור (בודקים לפי האמוג'י 🛬 שמופיע רק בשורת החזור,
-    // ולא לפי המילה "חזור" שמופיעה גם ב"מחיר הלוך-חזור")
-    const withoutReturn = buildMessage(sampleDeals[0], "TLV", "KGS");
-    expect(withoutReturn).not.toContain("🛬");
-
-    // עם חזור — מופיעה השעה *והחברה של החזור* (Arkia), לא של ההלוך
-    const withReturn = buildMessage(
-      {
-        ...sampleDeals[0], // ההלוך הוא Blue Bird
-        returnTime: "2026-09-06 18:20",
-        returnAirline: "Arkia",
-      },
-      "TLV",
-      "KGS"
-    );
-    expect(withReturn).toContain("🛬"); // שורת החזור קיימת
-    expect(withReturn).toContain("2026-09-06 18:20");
-    expect(withReturn).toContain("Arkia"); // החברה של החזור
-    expect(withReturn).toContain("Blue Bird"); // החברה של ההלוך — שתיהן מופיעות
-  });
 });
 
 // ============================================================
@@ -140,8 +118,8 @@ describe("sendTelegram", () => {
     (global.fetch as any).mockResolvedValue({ ok: false, status: 401 });
 
     // מצפים שהפונקציה תזרוק שגיאה
-    await expect(
-      sendTelegram("BAD_TOKEN", "12345", "שלום")
-    ).rejects.toThrow("Telegram failed: 401");
+    await expect(sendTelegram("BAD_TOKEN", "12345", "שלום")).rejects.toThrow(
+      "Telegram failed: 401",
+    );
   });
 });

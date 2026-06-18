@@ -8,7 +8,7 @@
 export interface FlightDeal {
   price: number;
   departTime: string; // פורמט "2026-09-03 13:40"
-  airline: string; // החברה של ההלוך
+  airline: string; // החברה של ההלוךs
   departureToken?: string; // אסימון שמשמש להבאת פרטי החזור (קריאה שנייה)
   returnTime?: string; // שעת יציאה בחזור — מתמלא אחרי הקריאה השנייה
   returnAirline?: string; // החברה של החזור — מתמלא אחרי הקריאה השנייה
@@ -27,7 +27,7 @@ export interface FilterCriteria {
 // זה מה שהופך אותה לקלה ובטוחה לבדיקה.
 export function filterDeals(
   deals: FlightDeal[],
-  criteria: FilterCriteria
+  criteria: FilterCriteria,
 ): FlightDeal[] {
   return deals.filter((d) => {
     // "2026-09-03 13:40" -> אחרי הרווח "13:40" -> לפני הנקודתיים -> 13
@@ -43,7 +43,7 @@ export function filterDeals(
 export function buildMessage(
   d: FlightDeal,
   origin: string,
-  destination: string
+  destination: string,
 ): string {
   // שורת ההלוך — תמיד מופיעה, עם החברה של ההלוך
   const outboundLine = `🛫 הלוך: ${d.airline} — ${d.departTime}`;
@@ -69,7 +69,7 @@ export function buildMessage(
 export async function sendTelegram(
   botToken: string,
   chatId: string,
-  text: string
+  text: string,
 ): Promise<void> {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   const res = await fetch(url, {
