@@ -1,0 +1,45 @@
+name: Flight Agent — Summer (LCA/RHO/HER)
+
+# מוניטור נפרד לטיול הבנות. לא נוגע במוניטור ההצעה (check-flights.yml).
+on:
+  schedule:
+    # רץ פעם ביום ב-06:00 UTC (~09:00 בישראל בקיץ).
+    # רוצה פעמיים? "0 6,18 * * *". שים לב למכסת SerpApi (חישוב למטה).
+    - cron: "0 6 * * *"
+  workflow_dispatch: # כפתור "Run workflow" ידני בלשונית Actions
+
+jobs:
+  check-flights:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run flight agent
+        run: npm start
+        env:
+          # סודות מ-GitHub Secrets
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # --- הגדרות הטיול ---
+          ORIGIN: TLV
+          DESTINATIONS: "LCA,RHO,HER" # לרנקה / רודוס / כרתים
+          DEPART_DATE: "2026-07-30"
+          RETURN_DATE: "2026-08-02"
+          ADULTS: "4" # 4 בנות -> המחיר יחזור לכל הקבוצה
+          # חלון שעות רחב — נותנים למחיר להיות הפילטר העיקרי
+          DEPART_FROM_HOUR: "0"
+          DEPART_TO_HOUR: "23"
+          RETURN_FROM_HOUR: "0"
+          RETURN_TO_HOUR: "23"
+          MAX_PRICE_EUR: "1400" # ₪1000 לאדם × 4 ≈ €1400 סה"כ (שער ₪1≈€0.29)
+          NONSTOP_ONLY: "true"

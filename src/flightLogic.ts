@@ -12,6 +12,7 @@ export interface FlightDeal {
   departureToken?: string; // אסימון שמשמש להבאת פרטי החזור (קריאה שנייה)
   returnTime?: string; // שעת יציאה בחזור — מתמלא אחרי הקריאה השנייה
   returnAirline?: string; // החברה של החזור — מתמלא אחרי הקריאה השנייה
+  destination?: string; // חדש: קוד היעד של הדיל (LCA/RHO/HER) — לתמיכה בכמה יעדים
 }
 
 // הקריטריונים לסינון — מועברים כפרמטר במקום לקרוא מ-env,
@@ -44,6 +45,7 @@ export function buildMessage(
   d: FlightDeal,
   origin: string,
   destination: string,
+  adults: number = 1, // חדש: מספר נוסעים. ברירת מחדל 1 (שומר על תאימות לטסטים).
 ): string {
   // שורת ההלוך — תמיד מופיעה, עם החברה של ההלוך
   const outboundLine = `🛫 הלוך: ${d.airline} — ${d.departTime}`;
@@ -54,12 +56,19 @@ export function buildMessage(
     ? `\n🛬 חזור: ${d.returnAirline ? d.returnAirline + " — " : ""}${d.returnTime}`
     : "";
 
+  // מחיר: הסכום מ-SerpApi הוא כבר לכל הנוסעים (כי שולחים adults).
+  // מחשבים גם בערך-לאדם, מעוגל למספר שלם.
+  const perPerson = Math.round(d.price / adults);
+  const priceLines =
+    `\n\n💰 מחיר הלוך-חזור ל-${adults} נוסעים: ${d.price} EUR` +
+    `\n👤 בערך לכל אחת: ~${perPerson} EUR`;
+
   return (
-    `✈️ <b>נמצאה טיסת צהריים טובה!</b>\n\n` +
+    `✈️ <b>נמצאה טיסה טובה!</b>\n\n` +
     `מסלול: ${origin} ⇄ ${destination}\n\n` +
     outboundLine +
     returnLine +
-    `\n\n💰 מחיר הלוך-חזור: ${d.price} EUR`
+    priceLines
   );
 }
 
